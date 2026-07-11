@@ -1,0 +1,223 @@
+@import "tailwindcss";
+
+@property --mood-accent {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #93c5fd;
+}
+@property --mood-accent-rgb {
+  syntax: '<string>';
+  inherits: true;
+  initial-value: "147, 197, 253";
+}
+@property --mood-glow {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #c084fc;
+}
+@property --mood-gradient-start {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #0b1220;
+}
+@property --mood-gradient-mid {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #111a2e;
+}
+@property --mood-gradient-end {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #16213a;
+}
+@property --particle-opacity {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0.15;
+}
+
+@theme {
+  --color-mood-accent: var(--mood-accent);
+  --color-mood-accent-rgb: var(--mood-accent-rgb);
+  --color-mood-glow: var(--mood-glow);
+  --color-mood-bg-start: var(--mood-gradient-start);
+  --color-mood-bg-mid: var(--mood-gradient-mid);
+  --color-mood-bg-end: var(--mood-gradient-end);
+
+  --font-sans: var(--font-geist-sans), Arial, sans-serif;
+  --font-mono: var(--font-geist-mono), monospace;
+
+  --animate-pulse-slow: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-spin-slow: spin 12s linear infinite;
+  
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+  --radius-3xl: 28px;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+:root {
+  /* Default Calm state */
+  --mood-accent: #93c5fd;
+  --mood-accent-rgb: "147, 197, 253";
+  --mood-glow: #c084fc;
+  --mood-gradient-start: #0b1220;
+  --mood-gradient-mid: #111a2e;
+  --mood-gradient-end: #16213a;
+  --particle-opacity: 0.15;
+  
+  --foreground: #f8fafc;
+  --background: var(--mood-gradient-start);
+
+  transition: 
+    --mood-accent 2.5s cubic-bezier(0.25, 1, 0.5, 1),
+    --mood-glow 2.5s cubic-bezier(0.25, 1, 0.5, 1),
+    --mood-gradient-start 2.5s cubic-bezier(0.25, 1, 0.5, 1),
+    --mood-gradient-mid 2.5s cubic-bezier(0.25, 1, 0.5, 1),
+    --mood-gradient-end 2.5s cubic-bezier(0.25, 1, 0.5, 1),
+    --particle-opacity 2.5s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+:root.mood-happy {
+  --mood-accent: #fbbf24; /* butter yellow/gold */
+  --mood-accent-rgb: "251, 191, 36";
+  --mood-glow: #fdba74; /* peach */
+  --mood-gradient-start: #1c150c;
+  --mood-gradient-mid: #2e2010;
+  --mood-gradient-end: #3f2a15;
+  --particle-opacity: 0.25;
+}
+
+:root.mood-calm {
+  --mood-accent: #60a5fa; /* sky blue */
+  --mood-accent-rgb: "96, 165, 250";
+  --mood-glow: #c084fc; /* lavender */
+  --mood-gradient-start: #0b1220;
+  --mood-gradient-mid: #111a2e;
+  --mood-gradient-end: #16213a;
+  --particle-opacity: 0.15;
+}
+
+:root.mood-sad {
+  --mood-accent: #818cf8; /* indigo */
+  --mood-accent-rgb: "129, 140, 248";
+  --mood-glow: #94a3b8; /* slate */
+  --mood-gradient-start: #0a0a0f;
+  --mood-gradient-mid: #11111b;
+  --mood-gradient-end: #1a1a2e;
+  --particle-opacity: 0.08;
+}
+
+:root.mood-anxious {
+  --mood-accent: #2dd4bf; /* teal */
+  --mood-accent-rgb: "45, 212, 191";
+  --mood-glow: #86efac; /* mint */
+  --mood-gradient-start: #061713;
+  --mood-gradient-mid: #0a241f;
+  --mood-gradient-end: #123830;
+  --particle-opacity: 0.2;
+}
+
+:root.mood-angry {
+  --mood-accent: #f97316; /* burnt orange */
+  --mood-accent-rgb: "249, 115, 22";
+  --mood-glow: #fca5a5; /* soft red terracotta */
+  --mood-gradient-start: #240f09;
+  --mood-gradient-mid: #38150d;
+  --mood-gradient-end: #491910;
+  --particle-opacity: 0.3;
+}
+
+:root.mood-burnout {
+  --mood-accent: #93c5fd; /* pale blue */
+  --mood-accent-rgb: "147, 197, 253";
+  --mood-glow: #312e81; /* deep indigo */
+  --mood-gradient-start: #05050f;
+  --mood-gradient-mid: #08081a;
+  --mood-gradient-end: #0f102b;
+  --particle-opacity: 0.05;
+}
+
+:root.mood-hopeful {
+  --mood-accent: #fbcfe8; /* soft pink */
+  --mood-accent-rgb: "251, 207, 232";
+  --mood-glow: #f59e0b; /* warm gold */
+  --mood-gradient-start: #1c0e18;
+  --mood-gradient-mid: #2f1325;
+  --mood-gradient-end: #3f1932;
+  --particle-opacity: 0.25;
+}
+
+body {
+  background-color: var(--mood-gradient-start);
+  background-image: linear-gradient(
+    to bottom right,
+    var(--mood-gradient-start),
+    var(--mood-gradient-mid),
+    var(--mood-gradient-end)
+  );
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  min-height: 100vh;
+  margin: 0;
+  overflow-x: hidden;
+}
+
+/* Glassmorphism primitives */
+.glass-panel {
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+.glass-panel-light {
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.glass-input {
+  background: rgba(15, 23, 42, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #fff;
+  transition: all 0.3s ease;
+}
+
+.glass-input:focus {
+  border-color: var(--mood-accent);
+  box-shadow: 0 0 12px rgba(var(--mood-accent-rgb), 0.15);
+  outline: none;
+}
+
+/* Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Hide scrollbar utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
