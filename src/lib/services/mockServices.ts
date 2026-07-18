@@ -11,10 +11,45 @@ import {
   JournalEntry, 
   Memory, 
   ConsentLog,
-  SafetyEvent,
-  SolaceDb
+  SafetyEvent
 } from "./mockDb";
 import { MoodType } from "@/contexts/ThemeContext";
+
+// Configurations for local FastAPI server integration
+const USE_REAL_BACKEND = true;
+const API_BASE_URL = "http://localhost:8000/api";
+
+const getHeaders = (hasBody = false) => {
+  const headers: Record<string, string> = {};
+  if (hasBody) {
+    headers["Content-Type"] = "application/json";
+  }
+  if (typeof window !== "undefined") {
+    const token = localStorage.getItem("solace_plus_access_token");
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+  }
+  return headers;
+};
+
+const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
+  const url = `${API_BASE_URL}${endpoint}`;
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      ...getHeaders(!!options.body),
+      ...options.headers,
+    },
+  });
+  
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`API Error: ${response.status} - ${errText}`);
+  }
+  
+  return response;
+};
 
 // Utility to simulate network delay
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -63,13 +98,50 @@ const PERSONALITY_RESPONSES = {
 const CRISIS_WORDS = ["suicide", "kill myself", "end my life", "hurt myself", "cut myself", "want to die", "better off dead"];
 
 export const authService = {
+  async login(email?: string, password?: string): Promise<void> {
+    if (USE_REAL_BACKEND) {
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password })
+      });
+      if (!response.ok) {
+        throw new Error("Incorrect email or password");
+      }
+      const data = await response.json();
+      localStorage.setItem("solace_plus_access_token", data.access_token);
+      localStorage.setItem("solace_plus_refresh_token", data.refresh_token);
+      return;
+    }
+    // Mock login is stateful via localStorage inside checkOnboardingStatus
+  },
+
   async getProfile(): Promise<Profile> {
+    if (USE_REAL_BACKEND) {
+      try {
+        const response = await apiFetch("/auth/profile");
+        return await response.json();
+      } catch (err) {
+        console.error("Real profile fetch failed, using local storage", err);
+      }
+    }
     await delay(400);
     const db = getMockDb();
     return db.profile;
   },
 
   async updateProfile(updated: Partial<Profile>): Promise<Profile> {
+    if (USE_REAL_BACKEND) {
+      try {
+        const response = await apiFetch("/auth/profile", {
+          method: "PUT",
+          body: JSON.stringify(updated)
+        });
+        return await response.json();
+      } catch (err) {
+        console.error("Real profile update failed, using local storage", err);
+      }
+    }
     await delay(600);
     const db = getMockDb();
     db.profile = { ...db.profile, ...updated } as Profile;
@@ -77,7 +149,33 @@ export const authService = {
     return db.profile;
   },
 
-  async register(profileData: Partial<Profile>): Promise<Profile> {
+  async register(profileData: Partial<Profile>, email?: string, password?: string): Promise<Profile> {
+    if (USE_REAL_BACKEND) {
+      try {
+        const regResponse = await fetch(`${API_BASE_URL}/auth/register`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: email || undefined,
+            password: password || undefined,
+            is_anonymous: !email
+          })
+        });
+        
+        if (!regResponse.ok) {
+          throw new Error("Registration failed");
+        }
+        
+        const tokens = await regResponse.json();
+        localStorage.setItem("solace_plus_access_token", tokens.access_token);
+        localStorage.setItem("solace_plus_refresh_token", tokens.refresh_token);
+        
+        // Save profile attributes to database profile record
+        return await this.updateProfile(profileData);
+      } catch (err) {
+        console.error("Real registration failed, using local storage", err);
+      }
+    }
     await delay(1000);
     const db = getMockDb();
     db.profile = { 
@@ -101,6 +199,17 @@ export const authService = {
   },
 
   async updateConsent(field: keyof Profile["consent_flags"], consent: boolean): Promise<Profile> {
+    if (USE_REAL_BACKEND) {
+      try {
+        const response = await apiFetch("/auth/consent", {
+          method: "PUT",
+          body: JSON.stringify({ field, consent })
+        });
+        return await response.json();
+      } catch (err) {
+        console.error("Real consent update failed, using local storage", err);
+      }
+    }
     await delay(500);
     const db = getMockDb();
     db.profile.consent_flags[field] = consent;
@@ -117,6 +226,15 @@ export const authService = {
   },
 
   async checkOnboardingStatus(): Promise<boolean> {
+    if (USE_REAL_BACKEND) {
+      try {
+        const response = await apiFetch("/auth/status");
+        const data = await response.json();
+        return data.isOnboarded;
+      } catch (err) {
+        console.error("Onboarding server status check failed, using local storage status", err);
+      }
+    }
     await delay(300);
     const db = getMockDb();
     return db.isOnboarded;
@@ -125,12 +243,31 @@ export const authService = {
 
 export const chatService = {
   async getConversations(): Promise<Conversation[]> {
+    if (USE_REAL_BACKEND) {
+      try {
+        const response = await apiFetch("/conversations");
+        return await response.json();
+      } catch (err) {
+        console.error("Real fetch conversations failed, using local storage", err);
+      }
+    }
     await delay(400);
     const db = getMockDb();
     return db.conversations;
   },
 
   async createConversation(title: string, category: string): Promise<Conversation> {
+    if (USE_REAL_BACKEND) {
+      try {
+        const response = await apiFetch("/conversations", {
+          method: "POST",
+          body: JSON.stringify({ title, category })
+        });
+        return await response.json();
+      } catch (err) {
+        console.error("Real create conversation failed, using local storage", err);
+      }
+    }
     await delay(500);
     const db = getMockDb();
     const newChat: Conversation = {
@@ -146,6 +283,14 @@ export const chatService = {
   },
 
   async deleteConversation(id: string): Promise<void> {
+    if (USE_REAL_BACKEND) {
+      try {
+        await apiFetch(`/conversations/${id}`, { method: "DELETE" });
+        return;
+      } catch (err) {
+        console.error("Real delete conversation failed, using local storage", err);
+      }
+    }
     await delay(500);
     const db = getMockDb();
     db.conversations = db.conversations.filter(c => c.id !== id);
@@ -154,6 +299,16 @@ export const chatService = {
   },
 
   async togglePin(id: string): Promise<Conversation[]> {
+    if (USE_REAL_BACKEND) {
+      try {
+        const response = await apiFetch(`/conversations/${id}/pin`, {
+          method: "POST"
+        });
+        return await response.json();
+      } catch (err) {
+        console.error("Real toggle pin failed, using local storage", err);
+      }
+    }
     await delay(300);
     const db = getMockDb();
     db.conversations = db.conversations.map(c => {
@@ -167,6 +322,14 @@ export const chatService = {
   },
 
   async getMessages(conversationId: string): Promise<Message[]> {
+    if (USE_REAL_BACKEND) {
+      try {
+        const response = await apiFetch(`/conversations/${conversationId}/messages`);
+        return await response.json();
+      } catch (err) {
+        console.error("Real get messages failed, using local storage", err);
+      }
+    }
     await delay(400);
     const db = getMockDb();
     return db.messages[conversationId] || [];
@@ -181,6 +344,70 @@ export const chatService = {
     onEmotion: (emotion: { primary_emotion: MoodType; intensity: number }) => void,
     onSafetyRedirect: () => void
   ): Promise<void> {
+    if (USE_REAL_BACKEND) {
+      try {
+        const token = localStorage.getItem("solace_plus_access_token");
+        const url = `${API_BASE_URL}/chat/stream?conversation_id=${encodeURIComponent(conversationId)}&content=${encodeURIComponent(content)}&persona=${encodeURIComponent(persona)}`;
+        
+        const response = await fetch(url, {
+          method: "GET",
+          headers: token ? { "Authorization": `Bearer ${token}` } : {}
+        });
+
+        if (!response.ok) {
+          throw new Error("HTTP error starting chat stream");
+        }
+
+        const reader = response.body?.getReader();
+        if (!reader) {
+          throw new Error("Stream reader not supported in this browser");
+        }
+
+        const decoder = new TextDecoder("utf-8");
+        let buffer = "";
+        let currentEvent = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          // Re-assign the last possibly truncated element back to the buffer
+          buffer = lines.pop() || "";
+
+          for (const line of lines) {
+            const cleanLine = line.trim();
+            if (!cleanLine) continue;
+
+            if (cleanLine.startsWith("event: ")) {
+              currentEvent = cleanLine.substring( cleanLine.indexOf(":") + 1 ).trim();
+            } else if (cleanLine.startsWith("data: ")) {
+              const dataStr = cleanLine.substring( cleanLine.indexOf(":") + 1 ).trim();
+              try {
+                const data = JSON.parse(dataStr);
+                if (currentEvent === "status") {
+                  onStatus(data.status);
+                } else if (currentEvent === "emotion") {
+                  onEmotion(data);
+                } else if (currentEvent === "token") {
+                  onToken(data.token);
+                } else if (currentEvent === "safety_redirect") {
+                  onSafetyRedirect();
+                  return;
+                }
+              } catch (e) {
+                console.error("SSE stream data line parse failed", e, cleanLine);
+              }
+            }
+          }
+        }
+        return;
+      } catch (err) {
+        console.error("Real stream failed, falling back to mock streaming", err);
+      }
+    }
+
     // 1. Safety Pre-check
     const isCrisis = CRISIS_WORDS.some(word => content.toLowerCase().includes(word));
     
@@ -298,18 +525,37 @@ export const chatService = {
           
           resolve();
         }
-      }, 70); // Emit a token every 70ms (simulates rapid stream)
+      }, 70);
     });
   }
 };
 
 export const moodService = {
   async getMoodLogs(): Promise<MoodLog[]> {
+    if (USE_REAL_BACKEND) {
+      try {
+        const response = await apiFetch("/mood");
+        return await response.json();
+      } catch (err) {
+        console.error("Real get moods failed, using local storage", err);
+      }
+    }
     await delay(300);
     return getMockDb().mood_logs;
   },
 
   async addMoodLog(mood_label: MoodType, intensity: number, note: string): Promise<MoodLog> {
+    if (USE_REAL_BACKEND) {
+      try {
+        const response = await apiFetch("/mood", {
+          method: "POST",
+          body: JSON.stringify({ mood_label, intensity, note })
+        });
+        return await response.json();
+      } catch (err) {
+        console.error("Real save mood failed, using local storage", err);
+      }
+    }
     await delay(600);
     const db = getMockDb();
     const newLog: MoodLog = {
@@ -327,11 +573,30 @@ export const moodService = {
 
 export const journalService = {
   async getJournals(): Promise<JournalEntry[]> {
+    if (USE_REAL_BACKEND) {
+      try {
+        const response = await apiFetch("/journal");
+        return await response.json();
+      } catch (err) {
+        console.error("Real get journals failed, using local storage", err);
+      }
+    }
     await delay(400);
     return getMockDb().journal_entries;
   },
 
   async addJournal(content: string, type: "daily" | "gratitude" | "voice", mood_tag?: string): Promise<JournalEntry> {
+    if (USE_REAL_BACKEND) {
+      try {
+        const response = await apiFetch("/journal", {
+          method: "POST",
+          body: JSON.stringify({ content, type, mood_tag })
+        });
+        return await response.json();
+      } catch (err) {
+        console.error("Real save journal failed, using local storage", err);
+      }
+    }
     await delay(700);
     const db = getMockDb();
     
@@ -362,7 +627,17 @@ export const journalService = {
   },
 
   async generateSummaryAsync(id: string): Promise<JournalEntry> {
-    await delay(1500); // Simulate background summarization job
+    if (USE_REAL_BACKEND) {
+      try {
+        const response = await apiFetch(`/journal/${id}/summarize`, {
+          method: "POST"
+        });
+        return await response.json();
+      } catch (err) {
+        console.error("Real journal summarization failed, using local storage", err);
+      }
+    }
+    await delay(1500);
     const db = getMockDb();
     const entryIndex = db.journal_entries.findIndex(j => j.id === id);
     if (entryIndex === -1) throw new Error("Journal entry not found");
@@ -386,11 +661,30 @@ export const journalService = {
 
 export const memoryService = {
   async getMemories(): Promise<Memory[]> {
+    if (USE_REAL_BACKEND) {
+      try {
+        const response = await apiFetch("/memory");
+        return await response.json();
+      } catch (err) {
+        console.error("Real get memories failed, using local storage", err);
+      }
+    }
     await delay(300);
     return getMockDb().memories;
   },
 
   async addMemory(title: string, description: string, category: Memory["category"], importance: number): Promise<Memory> {
+    if (USE_REAL_BACKEND) {
+      try {
+        const response = await apiFetch("/memory", {
+          method: "POST",
+          body: JSON.stringify({ title, description, category, importance })
+        });
+        return await response.json();
+      } catch (err) {
+        console.error("Real add memory failed, using local storage", err);
+      }
+    }
     await delay(500);
     const db = getMockDb();
     const newMemory: Memory = {
@@ -408,6 +702,17 @@ export const memoryService = {
   },
 
   async updateMemory(id: string, updated: Partial<Memory>): Promise<Memory> {
+    if (USE_REAL_BACKEND) {
+      try {
+        const response = await apiFetch(`/memory/${id}`, {
+          method: "PATCH",
+          body: JSON.stringify(updated)
+        });
+        return await response.json();
+      } catch (err) {
+        console.error("Real update memory failed, using local storage", err);
+      }
+    }
     await delay(400);
     const db = getMockDb();
     const idx = db.memories.findIndex(m => m.id === id);
@@ -419,6 +724,14 @@ export const memoryService = {
   },
 
   async deleteMemory(id: string): Promise<void> {
+    if (USE_REAL_BACKEND) {
+      try {
+        await apiFetch(`/memory/${id}`, { method: "DELETE" });
+        return;
+      } catch (err) {
+        console.error("Real delete memory failed, using local storage", err);
+      }
+    }
     await delay(400);
     const db = getMockDb();
     db.memories = db.memories.filter(m => m.id !== id);
@@ -426,6 +739,16 @@ export const memoryService = {
   },
 
   async toggleLock(id: string): Promise<Memory> {
+    if (USE_REAL_BACKEND) {
+      try {
+        const response = await apiFetch(`/memory/${id}/lock`, {
+          method: "POST"
+        });
+        return await response.json();
+      } catch (err) {
+        console.error("Real toggle lock failed, using local storage", err);
+      }
+    }
     await delay(300);
     const db = getMockDb();
     const idx = db.memories.findIndex(m => m.id === id);
@@ -437,19 +760,47 @@ export const memoryService = {
   },
 
   async exportData(): Promise<string> {
+    if (USE_REAL_BACKEND) {
+      try {
+        const response = await apiFetch("/memory/export", {
+          method: "POST"
+        });
+        const data = await response.json();
+        return JSON.stringify(data, null, 2);
+      } catch (err) {
+        console.error("Real data export failed, using local storage", err);
+      }
+    }
     await delay(1000);
     const db = getMockDb();
     return JSON.stringify(db, null, 2);
   },
 
   async purgeAllData(): Promise<void> {
+    if (USE_REAL_BACKEND) {
+      try {
+        await apiFetch("/auth/purge", { method: "DELETE" });
+      } catch (err) {
+        console.error("Real delete all user data failed", err);
+      }
+      localStorage.removeItem("solace_plus_access_token");
+      localStorage.removeItem("solace_plus_refresh_token");
+    }
     await delay(1200);
-    resetMockDb(true); // reset and require onboarding
+    resetMockDb(true);
   }
 };
 
 export const recommendationService = {
   async getRecommendations(mood: MoodType) {
+    if (USE_REAL_BACKEND) {
+      try {
+        const response = await apiFetch(`/recommendations?mood=${encodeURIComponent(mood)}`);
+        return await response.json();
+      } catch (err) {
+        console.error("Real get recommendations failed, using local storage", err);
+      }
+    }
     await delay(300);
     const recommendations = {
       calm: [
@@ -494,6 +845,14 @@ export const recommendationService = {
 
 export const adminService = {
   async getMetrics() {
+    if (USE_REAL_BACKEND) {
+      try {
+        const response = await apiFetch("/admin/metrics");
+        return await response.json();
+      } catch (err) {
+        console.error("Real get metrics failed, using local storage", err);
+      }
+    }
     await delay(500);
     return {
       daily_active_users: 184,
@@ -504,6 +863,14 @@ export const adminService = {
     };
   },
   async getSafetyEventsCount() {
+    if (USE_REAL_BACKEND) {
+      try {
+        const response = await apiFetch("/admin/safety-events");
+        return await response.json();
+      } catch (err) {
+        console.error("Real get safety metrics failed, using local storage", err);
+      }
+    }
     await delay(400);
     return {
       total_triggers: 12,

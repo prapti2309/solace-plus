@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Shield, Sparkles, Mail, Lock } from "lucide-react";
 import { AmbientBackground } from "@/components/theme-engine/AmbientBackground";
+import { authService } from "@/lib/services/mockServices";
 import { getMockDb, saveMockDb } from "@/lib/services/mockDb";
 
 export default function LoginPage() {
@@ -29,15 +30,14 @@ export default function LoginPage() {
     }
 
     setLoading(true);
-    // Simulate API authorization delay
-    setTimeout(() => {
+    try {
+      await authService.login(email, password);
       setLoading(false);
-      const db = getMockDb();
-      db.isOnboarded = true; // Auto-onboard for login demonstration
-      db.profile.name = email.split("@")[0];
-      saveMockDb(db);
       router.push("/home");
-    }, 1200);
+    } catch (err: any) {
+      setLoading(false);
+      setError(err?.message || "Invalid email or password.");
+    }
   };
 
   const handleGoogleLogin = () => {
