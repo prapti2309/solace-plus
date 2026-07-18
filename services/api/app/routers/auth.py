@@ -10,7 +10,7 @@ from app.core.config import settings
 from app.core.security import get_password_hash, verify_password, create_access_token, create_refresh_token, verify_token
 from app.core.encryption import encrypt_field, decrypt_field
 from app.models.models import User, Profile, ConsentLog
-from app.schemas.schemas import UserRegister, UserLogin, Token, UserResponse, ProfileResponse, ProfileUpdate, ConsentUpdate, EmergencyContactSchema
+from app.schemas.schemas import UserRegister, UserLogin, Token, TokenRefresh, UserResponse, ProfileResponse, ProfileUpdate, ConsentUpdate, EmergencyContactSchema
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login", auto_error=False)
@@ -116,6 +116,34 @@ async def login(user_in: UserLogin, db: AsyncSession = Depends(get_db)):
     return {
         "access_token": access_token,
         "refresh_token": refresh_token,
+        "token_type": "bearer"
+    }
+
+@router.post("/refresh", response_model=Token)
+async def refresh_token(token_in: TokenRefresh, db: AsyncSession = Depends(get_db)):
+    """
+    Exchange a valid refresh token for a new access + refresh token pair.
+    """
+    payload = verify_token(token_in.refresh_token)
+    if payload is None or payload.get("type") != "refresh":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    user_id: str = payload.get("sub")
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+
+    access_token = create_access_token({"sub": user.id})
+    new_refresh_token = create_refresh_token({"sub": user.id})
+
+    return {
+        "access_token": access_token,
+        "refresh_token": new_refresh_token,
         "token_type": "bearer"
     }
 

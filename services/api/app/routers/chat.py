@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -7,7 +7,7 @@ from typing import List
 from app.db.session import get_db
 from app.routers.auth import get_current_user
 from app.models.models import User, Conversation, Message
-from app.schemas.schemas import ConversationCreate, ConversationResponse, MessageResponse, MessageCreate
+from app.schemas.schemas import ConversationCreate, ConversationResponse, MessageResponse, MessageCreate, ConversationTitleUpdate
 from app.services.ai_orchestration.ai_orchestration import stream_chat_response, detect_emotion, encrypt_field, decrypt_field
 
 router = APIRouter(tags=["chat"])
@@ -74,6 +74,46 @@ async def toggle_pin(
     
     # Return updated list
     return await get_conversations(current_user, db)
+
+@router.put("/conversations/{id}/title", response_model=ConversationResponse)
+async def rename_conversation(
+    id: str,
+    title_in: ConversationTitleUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Rename a conversation's title.
+    """
+    result = await db.execute(
+        select(Conversation).where(Conversation.id == id, Conversation.user_id == current_user.id)
+    )
+    conv = result.scalar_one_or_none()
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    conv.title = title_in.title
+    await db.commit()
+    return conv
+
+@router.get("/conversations/search", response_model=List[ConversationResponse])
+async def search_conversations(
+    q: str = Query(..., min_length=1, description="Search term for conversation titles"),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Search conversations by title (case-insensitive substring match).
+    """
+    result = await db.execute(
+        select(Conversation)
+        .where(
+            Conversation.user_id == current_user.id,
+            Conversation.title.ilike(f"%{q}%")
+        )
+        .order_by(Conversation.created_at.desc())
+    )
+    return result.scalars().all()
+
 
 @router.get("/conversations/{id}/messages", response_model=List[MessageResponse])
 async def get_conversation_messages(

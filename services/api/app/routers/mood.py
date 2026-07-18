@@ -41,7 +41,7 @@ async def add_mood(
 
 @router.get("/trends")
 async def get_mood_trends(
-    range: str = Query("weekly", regex="^(weekly|monthly)$"),
+    range: str = Query("weekly", pattern="^(weekly|monthly)$"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):

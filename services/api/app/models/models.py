@@ -20,6 +20,7 @@ class User(Base):
     auth_provider: Mapped[str] = mapped_column(String(50), default="email")  # email, google, anonymous
     is_anonymous: Mapped[bool] = mapped_column(Boolean, default=False)
     two_factor_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    role: Mapped[str] = mapped_column(String(30), default="user")  # user, support_admin, system_admin
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=get_utc_now)
     last_login_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
@@ -31,6 +32,7 @@ class User(Base):
     conversations: Mapped[List["Conversation"]] = relationship("Conversation", back_populates="user", cascade="all, delete-orphan")
     memories: Mapped[List["Memory"]] = relationship("Memory", back_populates="user", cascade="all, delete-orphan")
     safety_events: Mapped[List["SafetyEvent"]] = relationship("SafetyEvent", back_populates="user", cascade="all, delete-orphan")
+    notification_pref: Mapped["NotificationPreference"] = relationship("NotificationPreference", back_populates="user", uselist=False, cascade="all, delete-orphan")
 
 
 class Profile(Base):
@@ -173,3 +175,28 @@ class SafetyEvent(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=get_utc_now)
 
     user: Mapped["User"] = relationship("User", back_populates="safety_events")
+
+
+class NotificationPreference(Base):
+    __tablename__ = "notification_preferences"
+
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+
+    # Toggle flags for each notification type
+    mood_reminders: Mapped[bool] = mapped_column(Boolean, default=True)
+    journal_nudges: Mapped[bool] = mapped_column(Boolean, default=True)
+    hydration_reminders: Mapped[bool] = mapped_column(Boolean, default=False)
+    gratitude_prompts: Mapped[bool] = mapped_column(Boolean, default=True)
+    weekly_reports: Mapped[bool] = mapped_column(Boolean, default=True)
+    therapy_reminders: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # Quiet hours (24h format strings, e.g. "22:00")
+    quiet_hours_start: Mapped[Optional[str]] = mapped_column(String(5), nullable=True, default="22:00")
+    quiet_hours_end: Mapped[Optional[str]] = mapped_column(String(5), nullable=True, default="08:00")
+
+    # Preferred delivery channel
+    channel: Mapped[str] = mapped_column(String(20), default="in_app")  # in_app, push, email
+
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=get_utc_now, onupdate=get_utc_now)
+
+    user: Mapped["User"] = relationship("User", back_populates="notification_pref")

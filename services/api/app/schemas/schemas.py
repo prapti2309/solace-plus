@@ -13,6 +13,9 @@ class TokenPayload(BaseModel):
     type: str  # "access" or "refresh"
     exp: int
 
+class TokenRefresh(BaseModel):
+    refresh_token: str
+
 # User Auth Schemas
 class UserRegister(BaseModel):
     email: Optional[EmailStr] = None
@@ -27,6 +30,7 @@ class UserResponse(BaseModel):
     id: str
     email: Optional[str] = None
     is_anonymous: bool
+    role: str
     created_at: datetime
 
     class Config:
@@ -162,6 +166,9 @@ class ConversationCreate(BaseModel):
     title: str
     category: str = "general"
 
+class ConversationTitleUpdate(BaseModel):
+    title: str
+
 class ConversationResponse(BaseModel):
     id: str
     user_id: str
@@ -192,3 +199,89 @@ class AdminMetricsResponse(BaseModel):
 class SafetyEventCountResponse(BaseModel):
     total_triggers: int
     by_severity: Dict[str, int]
+
+# ─── Wellness Schemas ────────────────────────────────────────────────────────
+
+class WellnessStep(BaseModel):
+    step: int
+    instruction: str
+    duration_seconds: Optional[int] = None
+
+class WellnessExerciseResponse(BaseModel):
+    id: str
+    title: str
+    category: str          # breathing, grounding, cbt, movement, mindfulness
+    description: str
+    duration_minutes: int
+    difficulty: str        # easy, medium
+    tags: List[str]
+    steps: List[WellnessStep]
+
+# ─── Progress Schemas ────────────────────────────────────────────────────────
+
+class StreakResponse(BaseModel):
+    current_streak: int
+    longest_streak: int
+    last_active_date: Optional[str] = None
+
+class ProgressSummaryResponse(BaseModel):
+    total_mood_checkins: int
+    total_journal_entries: int
+    total_chat_sessions: int
+    total_memories: int
+    mood_checkin_streak: int
+    wellness_score: float   # 0–100 computed score
+    most_frequent_mood: Optional[str] = None
+    last_7_days_moods: List[Dict[str, Any]]
+
+# ─── Safety Schemas ──────────────────────────────────────────────────────────
+
+class SafetyReportCreate(BaseModel):
+    message: Optional[str] = None   # Optional context from user
+    severity: str = "flagged"       # flagged, elevated, imminent
+
+class SafetyReportResponse(BaseModel):
+    id: str
+    severity: str
+    action_taken: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class CrisisResource(BaseModel):
+    name: str
+    description: str
+    phone: Optional[str] = None
+    url: Optional[str] = None
+    available_24h: bool
+    region: str  # global, US, UK, IN, AU, CA, etc.
+
+# ─── Notification Preference Schemas ─────────────────────────────────────────
+
+class NotificationPreferenceResponse(BaseModel):
+    user_id: str
+    mood_reminders: bool
+    journal_nudges: bool
+    hydration_reminders: bool
+    gratitude_prompts: bool
+    weekly_reports: bool
+    therapy_reminders: bool
+    quiet_hours_start: Optional[str] = None
+    quiet_hours_end: Optional[str] = None
+    channel: str
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class NotificationPreferenceUpdate(BaseModel):
+    mood_reminders: Optional[bool] = None
+    journal_nudges: Optional[bool] = None
+    hydration_reminders: Optional[bool] = None
+    gratitude_prompts: Optional[bool] = None
+    weekly_reports: Optional[bool] = None
+    therapy_reminders: Optional[bool] = None
+    quiet_hours_start: Optional[str] = None
+    quiet_hours_end: Optional[str] = None
+    channel: Optional[str] = None  # in_app, push, email

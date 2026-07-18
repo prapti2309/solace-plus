@@ -117,3 +117,22 @@ async def summarize_journal(
         "cognitive_distortions": entry.cognitive_distortions,
         "created_at": entry.created_at
     }
+
+@router.delete("/{id}", status_code=204)
+async def delete_journal(
+    id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Permanently delete a journal entry.
+    """
+    result = await db.execute(
+        select(JournalEntry).where(JournalEntry.id == id, JournalEntry.user_id == current_user.id)
+    )
+    entry = result.scalar_one_or_none()
+    if not entry:
+        raise HTTPException(status_code=404, detail="Journal entry not found")
+    await db.delete(entry)
+    await db.commit()
+    return None

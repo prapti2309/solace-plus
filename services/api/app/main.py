@@ -7,7 +7,7 @@ from app.db.session import engine
 from app.db.base import Base
 
 # Routers
-from app.routers import auth, chat, mood, journal, memory, recommendations, admin, voice
+from app.routers import auth, chat, mood, journal, memory, recommendations, admin, voice, wellness, progress, safety, notifications
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -45,6 +45,10 @@ app.include_router(memory.router, prefix=settings.API_V1_STR)
 app.include_router(recommendations.router, prefix=settings.API_V1_STR)
 app.include_router(admin.router, prefix=settings.API_V1_STR)
 app.include_router(voice.router, prefix=settings.API_V1_STR)
+app.include_router(wellness.router, prefix=settings.API_V1_STR)
+app.include_router(progress.router, prefix=settings.API_V1_STR)
+app.include_router(safety.router, prefix=settings.API_V1_STR)
+app.include_router(notifications.router, prefix=settings.API_V1_STR)
 
 @app.get("/")
 def read_root():
