@@ -1,15 +1,20 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Plus_Jakarta_Sans, Outfit, Inter } from "next/font/google";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const plusJakartaSans = Plus_Jakarta_Sans({
+  variable: "--font-sans",
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const outfit = Outfit({
+  variable: "--font-heading",
+  subsets: ["latin"],
+});
+
+const inter = Inter({
+  variable: "--font-body",
   subsets: ["latin"],
 });
 
@@ -28,7 +33,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased dark`}
+      className={`${plusJakartaSans.variable} ${outfit.variable} ${inter.variable} h-full antialiased dark`}
       style={{ colorScheme: "dark" }}
     >
       <body className="min-h-full bg-slate-950 text-slate-100 flex flex-col antialiased selection:bg-mood-accent/30 selection:text-white">

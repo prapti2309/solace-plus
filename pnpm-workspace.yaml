@@ -1,0 +1,6 @@
+packages:
+  - "."              # root is the web app workspace
+  - "packages/*"     # shared packages
+allowBuilds:
+  sharp: true
+  unrs-resolver: true
