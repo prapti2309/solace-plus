@@ -25,6 +25,8 @@ export const metadata: Metadata = {
   authors: [{ name: "Solace+ Team" }],
 };
 
+import { AuthProvider } from "@/contexts/AuthContext";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -37,9 +39,11 @@ export default function RootLayout({
       style={{ colorScheme: "dark" }}
     >
       <body className="min-h-full bg-slate-950 text-slate-100 flex flex-col antialiased selection:bg-mood-accent/30 selection:text-white">
-        <ThemeProvider>
-          {children}
-        </ThemeProvider>
+        <AuthProvider>
+          <ThemeProvider>
+            {children}
+          </ThemeProvider>
+        </AuthProvider>
       </body>
     </html>
   );

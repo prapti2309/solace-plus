@@ -1,3 +1,5 @@
+import uuid
+import json
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,6 +9,7 @@ from datetime import datetime, timezone
 
 from app.db.session import get_db
 from app.core.config import settings
+from app.core.redis import redis_client
 from app.core.security import get_password_hash, verify_password, create_access_token, create_refresh_token, verify_token
 from app.core.encryption import encrypt_field, decrypt_field
 from app.models.models import User, Profile, ConsentLog
@@ -148,43 +151,23 @@ async def refresh_token(token_in: TokenRefresh, db: AsyncSession = Depends(get_d
     }
 
 @router.post("/anonymous", response_model=Token)
-async def anonymous_login(db: AsyncSession = Depends(get_db)):
-    # Generate an anonymous user
-    new_user = User(
-        is_anonymous=True,
-        auth_provider="anonymous"
-    )
-    db.add(new_user)
-    await db.flush()
+async def anonymous_login():
+    """
+    Creates an ephemeral anonymous session stored in Redis with 24-hour expiration.
+    Does NOT create a row in the PostgreSQL users table.
+    """
+    session_id = f"anon_{uuid.uuid4()}"
+    session_data = json.dumps({
+        "session_id": session_id,
+        "is_anonymous": True,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    })
+    
+    # Store session in Redis for 24 hours (86400 seconds)
+    await redis_client.set(f"anon_session:{session_id}", session_data, ex=86400)
 
-    new_profile = Profile(
-        user_id=new_user.id,
-        name="Alex Mercer",
-        nickname="Al",
-        age_group="25-34",
-        pronouns="they/them",
-        timezone="GMT-5",
-        language="English",
-        goals=["Managing Stress", "Mindful Reflection", "Improving Sleep", "Building Boundaries"],
-        interests=["Creative Writing", "Nature Walks", "Yoga", "Electronic Music"],
-        occupation="Product UX Researcher",
-        routine=["Morning Coffee Meditation", "Midday Breathing Break", "10 PM Screen Shutdown"],
-        communication_style="Gentle and analytical, likes structure",
-        emergency_contact=encrypt_field("Sister:Sarah Mercer:+1 (555) 932-8430:true"),
-        consent_flags={
-            "profile": True,
-            "chat_history": True,
-            "mood_tracking": True,
-            "journal_summary": True,
-            "long_term_memory": True,
-            "voice_analysis": False
-        }
-    )
-    db.add(new_profile)
-    await db.commit()
-
-    access_token = create_access_token({"sub": new_user.id})
-    refresh_token = create_refresh_token({"sub": new_user.id})
+    access_token = create_access_token({"sub": session_id, "is_anonymous": True})
+    refresh_token = create_refresh_token({"sub": session_id, "is_anonymous": True})
 
     return {
         "access_token": access_token,
